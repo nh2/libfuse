@@ -72,6 +72,15 @@ class raii_tmpdir:
 def short_tmpdir():
     return raii_tmpdir()
 
+def readdir_inode(dir):
+    cmd = base_cmdline + [ pjoin(basename, 'test', 'readdir_inode'), dir ]
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                          universal_newlines=True) as proc:
+        lines = proc.communicate()[0].splitlines()
+    lines.sort()
+    return lines
+
+
 @pytest.mark.parametrize("cmdline_builder", (invoke_directly, invoke_mount_fuse,
                                              invoke_mount_fuse_drop_privileges))
 @pytest.mark.parametrize("options", powerset(options))
@@ -590,6 +599,10 @@ def tst_readdir(src_dir, mnt_dir):
     listdir_should.sort()
     assert listdir_is == listdir_should
 
+    inodes_is = readdir_inode(mnt_newdir)
+    inodes_should = readdir_inode(src_newdir)
+    assert inodes_is == inodes_should
+
     os.unlink(file_)
     os.unlink(subfile)
     os.rmdir(subdir)
@@ -611,6 +624,10 @@ def tst_readdir_big(src_dir, mnt_dir):
     listdir_should = sorted(os.listdir(src_dir))
     assert listdir_is == listdir_should
 
+    inodes_is = readdir_inode(mnt_dir)
+    inodes_should = readdir_inode(src_dir)
+    assert inodes_is == inodes_should
+
     for fname in fnames:
         stat_src = os.stat(pjoin(src_dir, fname))
         stat_mnt = os.stat(pjoin(mnt_dir, fname))
@@ -619,7 +636,7 @@ def tst_readdir_big(src_dir, mnt_dir):
         assert stat_src.st_ctime == stat_mnt.st_ctime
         assert stat_src.st_size == stat_mnt.st_size
         os.unlink(pjoin(src_dir, fname))
-    
+
 def tst_truncate_path(mnt_dir):
     assert len(TEST_DATA) > 1024
 
